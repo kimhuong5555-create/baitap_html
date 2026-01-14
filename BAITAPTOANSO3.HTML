@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Học Số 3 & Vật Nuôi</title>
+    <style>
+        /* --- GIAO DIỆN --- */
+        :root {
+            --primary: #FF9F43; /* Cam */
+            --secondary: #54a0ff; /* Xanh */
+            --bg: #fdf6e3; /* Kem sáng */
+            --house: #ff6b6b;
+        }
+
+        body {
+            margin: 0; overflow: hidden; font-family: 'Arial', sans-serif;
+            background-color: var(--bg); display: flex; flex-direction: column;
+            height: 100vh; touch-action: none;
+        }
+
+        /* Nút Loa */
+        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; }
+        .btn-icon {
+            background: white; border: 3px solid var(--primary); border-radius: 50%;
+            width: 50px; height: 50px; font-size: 1.5rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px rgba(0,0,0,0.1);
+        }
+
+        /* Đề bài */
+        #top-bar {
+            background: white; padding: 10px; text-align: center;
+            border-bottom: 5px solid var(--primary); z-index: 5;
+        }
+        #instruction-text {
+            color: #d35400; font-size: 1.2rem; font-weight: bold; margin-top: 5px; min-height: 45px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Khu vực Thả (Ngôi Nhà) */
+        #drop-zone-container {
+            flex: 2; display: flex; justify-content: center; align-items: center; position: relative;
+            flex-direction: column;
+        }
+
+        #house-target {
+            width: 220px; height: 200px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 L90 40 V90 H10 V40 Z" fill="%23ff6b6b" stroke="%23c0392b" stroke-width="3"/><rect x="35" y="60" width="30" height="30" fill="%236F1E51"/></svg>') no-repeat center center;
+            background-size: contain;
+            display: flex; justify-content: center; align-items: center;
+            position: relative;
+        }
+        
+        #house-label {
+            position: absolute; bottom: -30px; 
+            font-weight: bold; color: #c0392b; font-size: 1.2rem;
+        }
+
+        /* Khu vực chứa thẻ (Nguồn) */
+        #source-zone {
+            flex: 1.2; background: #ffeaa7; border-top: 6px solid #fdcb6e;
+            display: flex; justify-content: space-around; align-items: center; padding: 10px; flex-wrap: wrap;
+        }
+
+        /* --- CÁC LOẠI THẺ --- */
+        .item-card {
+            cursor: grab; user-select: none; touch-action: none; position: relative;
+            background: white; border-radius: 10px;
+            box-shadow: 0 4px rgba(0,0,0,0.1);
+            display: flex; justify-content: center; align-items: center;
+            transition: transform 0.2s;
+        }
+        .item-card:active { transform: scale(1.2); z-index: 1000; }
+
+        /* Thẻ con vật đơn (cho bài tìm 3 con gà) */
+        .card-single { width: 80px; height: 80px; font-size: 4rem; }
+
+        /* Thẻ Số (cho bài tìm số 3) */
+        .card-number { 
+            width: 70px; height: 80px; font-size: 4rem; font-weight: bold; 
+            color: #2c3e50; border: 2px solid #bdc3c7;
+        }
+        .num-yellow { color: #f1c40f; border-color: #f1c40f; background: #fffbf0; }
+
+        /* Thẻ Nhóm (cho bài tìm nhóm có lượng 3) */
+        .card-group {
+            width: 100px; height: 100px;
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+            border: 2px dashed #b2bec3; padding: 5px;
+        }
+        .mini-icon { font-size: 2rem; margin: 2px; }
+
+        /* Màn hình */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; text-align: center;
+        }
+        .btn-start {
+            background: var(--primary); color: white; border: none;
+            padding: 15px 40px; font-size: 1.8rem; border-radius: 50px;
+            cursor: pointer; margin-top: 20px; box-shadow: 0 6px #d35400;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
+        .hidden { display: none !important; }
+        .confetti { position: absolute; width: 10px; height: 10px; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button class="btn-icon" onclick="replayAudio()">🔊</button>
+    </div>
+
+    <div id="start-screen" class="overlay">
+        <h1 style="color: var(--primary); font-size: 2.5rem;">3️⃣ SỐ 3 DIỆU KỲ 🐣</h1>
+        <p>Bé học đếm và nhận biết số 3</p>
+        <button class="btn-start" onclick="initGame()">BẮT ĐẦU HỌC ▶️</button>
+    </div>
+
+    <div id="win-screen" class="overlay hidden">
+        <h1 style="color: #27ae60;">🎉 GIỎI QUÁ! 🎉</h1>
+        <div style="font-size: 6rem;">⭐⭐⭐</div>
+        <p>Bé đã tìm đúng hết rồi!</p>
+        <button class="btn-start" onclick="nextLevel()">BÀI TIẾP THEO ➡️</button>
+    </div>
+
+    <div id="top-bar">
+        <div style="color: gray;">Bài <span id="level-num">1</span></div>
+        <div id="instruction-text">Đang tải...</div>
+    </div>
+
+    <div id="drop-zone-container">
+        <div id="house-target"></div>
+        <div id="house-label">NGÔI NHÀ SỐ 3</div>
+    </div>
+
+    <div id="source-zone"></div>
+
+    <script>
+        // --- CẤU HÌNH DỮ LIỆU ---
+        
+        // Bài 1: Tìm 3 con gà con màu vàng (Đếm tách rời)
+        const L1_DATA = [
+            { type: 'single', icon: '🐣', id: 'chick', valid: true },
+            { type: 'single', icon: '🐣', id: 'chick', valid: true },
+            { type: 'single', icon: '🐣', id: 'chick', valid: true }, // 3 con đúng
+            { type: 'single', icon: '🐶', id: 'dog', valid: false },
+            { type: 'single', icon: '🐱', id: 'cat', valid: false },
+            { type: 'single', icon: '🐸', id: 'frog', valid: false }
+        ];
+
+        // Bài 2: Tìm 3 con chó xám
+        const L2_DATA = [
+            { type: 'single', icon: '🐺', id: 'graydog', valid: true },
+            { type: 'single', icon: '🐺', id: 'graydog', valid: true },
+            { type: 'single', icon: '🐺', id: 'graydog', valid: true },
+            { type: 'single', icon: '🐶', id: 'dog', valid: false }, // Chó vàng (sai)
+            { type: 'single', icon: '🐷', id: 'pig', valid: false }
+        ];
+
+        // Bài 3: Nhận biết số 3 (Tìm thẻ số 3)
+        const L3_DATA = [
+            { type: 'number', val: '3', valid: true },
+            { type: 'number', val: '3', valid: true },
+            { type: 'number', val: '3', valid: true },
+            { type: 'number', val: '1', valid: false },
+            { type: 'number', val: '2', valid: false },
+            { type: 'number', val: '4', valid: false }
+        ];
+
+        // Bài 4: Tư duy trừu tượng (Tìm nhóm có số lượng 3)
+        const L4_DATA = [
+            { type: 'group', icon: '🐱', qty: 3, valid: true }, // Thẻ có 3 con mèo
+            { type: 'group', icon: '🐶', qty: 3, valid: true }, // Thẻ có 3 con chó
+            { type: 'group', icon: '🐸', qty: 3, valid: true }, // Thẻ có 3 con ếch
+            { type: 'group', icon: '🐣', qty: 1, valid: false }, // Thẻ 1 con
+            { type: 'group', icon: '🐷', qty: 2, valid: false }  // Thẻ 2 con
+        ];
+
+        // Bài 5: Tìm số 3 MÀU VÀNG (Phân biệt màu và số)
+        const L5_DATA = [
+            { type: 'number', val: '3', color: 'yellow', valid: true },
+            { type: 'number', val: '3', color: 'yellow', valid: true },
+            { type: 'number', val: '3', color: 'yellow', valid: true },
+            { type: 'number', val: '3', color: 'black', valid: false }, // Số 3 nhưng màu đen
+            { type: 'number', val: '2', color: 'yellow', valid: false } // Màu vàng nhưng số 2
+        ];
+
+        const LEVELS = [
+            { text: "Bé hãy tìm và kéo 3 chú GÀ CON (🐣) về nhà nhé!", data: L1_DATA, count: 3 },
+            { text: "Bé hãy tìm đúng 3 chú CHÓ XÁM (🐺) nào!", data: L2_DATA, count: 3 },
+            { text: "Bé hãy tìm những THẺ SỐ 3 thả vào nhà nhé!", data: L3_DATA, count: 3 },
+            { text: "Khó hơn nè: Tìm những thẻ có 3 CON VẬT nhé!", data: L4_DATA, count: 3 },
+            { text: "Bé hãy tìm CHỮ SỐ 3 MÀU VÀNG nhé!", data: L5_DATA, count: 3 }
+        ];
+
+        let currentLevel = 0;
+        let foundCount = 0;
+        let audioCtx = null;
+        let vnVoice = null;
+
+        // --- HỆ THỐNG ---
+        function initGame() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.getElementById('start-screen').classList.add('hidden');
+            loadLevel(0);
+        }
+
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            vnVoice = voices.find(v => v.lang.includes('vi') || v.name.includes('Viet'));
+        }
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        setTimeout(loadVoices, 500);
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'vi-VN';
+            if (vnVoice) msg.voice = vnVoice;
+            msg.rate = 0.9; msg.pitch = 1.2; // Giọng nữ cao
+            window.speechSynthesis.speak(msg);
+        }
+
+        function playTone(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'ok') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            } else {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            }
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function loadLevel(idx) {
+            currentLevel = idx; foundCount = 0;
+            const lv = LEVELS[idx];
+            document.getElementById('instruction-text').innerText = lv.text;
+            document.getElementById('level-num').innerText = idx + 1;
+            
+            // Xóa cũ và tạo mới
+            const container = document.getElementById('source-zone');
+            container.innerHTML = '';
+            
+            // Trộn và tạo thẻ
+            let list = [...lv.data].sort(() => Math.random() - 0.5);
+            list.forEach(item => createCard(item, container));
+
+            setTimeout(() => speak(lv.text), 500);
+        }
+
+        function createCard(item, container) {
+            const el = document.createElement('div');
+            el.classList.add('item-card');
+            el.dataProps = item; // Lưu dữ liệu để kiểm tra sau
+
+            // Xử lý hiển thị theo loại thẻ
+            if (item.type === 'single') {
+                el.classList.add('card-single');
+                el.innerText = item.icon;
+            } 
+            else if (item.type === 'number') {
+                el.classList.add('card-number');
+                el.innerText = item.val;
+                if (item.color === 'yellow') el.classList.add('num-yellow');
+            }
+            else if (item.type === 'group') {
+                el.classList.add('card-group');
+                // Tạo số lượng icon nhỏ bên trong
+                for(let i=0; i<item.qty; i++) {
+                    const span = document.createElement('span');
+                    span.className = 'mini-icon';
+                    span.innerText = item.icon;
+                    el.appendChild(span);
+                }
+            }
+
+            container.appendChild(el);
+            addDragEvents(el);
+        }
+
+        function nextLevel() {
+            document.getElementById('win-screen').classList.add('hidden');
+            let next = currentLevel + 1;
+            if (next >= LEVELS.length) {
+                speak("Tuyệt vời! Bé đã học xong số 3 rồi!");
+                alert("Chúc mừng bé!"); next = 0;
+            }
+            loadLevel(next);
+        }
+
+        function replayAudio() { speak(LEVELS[currentLevel].text); }
+
+        // --- XỬ LÝ KÉO THẢ ---
+        function addDragEvents(el) {
+            let isDragging = false;
+            let startX, startY, initLeft, initTop;
+
+            const start = (e) => {
+                if(el.parentNode.id === 'house-target') return;
+                e.preventDefault(); isDragging = true;
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = el.getBoundingClientRect();
+                el.style.position = 'fixed';
+                el.style.left = rect.left + 'px'; el.style.top = rect.top + 'px';
+                el.style.zIndex = 1000;
+                startX = touch.clientX; startY = touch.clientY;
+                initLeft = rect.left; initTop = rect.top;
+            };
+
+            const move = (e) => {
+                if(!isDragging) return;
+                e.preventDefault();
+                const touch = e.touches ? e.touches[0] : e;
+                el.style.left = (initLeft + touch.clientX - startX) + 'px';
+                el.style.top = (initTop + touch.clientY - startY) + 'px';
+            };
+
+            const end = (e) => {
+                if(!isDragging) return;
+                isDragging = false; el.style.zIndex = '';
+                
+                const drop = document.getElementById('house-target').getBoundingClientRect();
+                const obj = el.getBoundingClientRect();
+                const cx = obj.left + obj.width/2; const cy = obj.top + obj.height/2;
+
+                if (cx > drop.left && cx < drop.right && cy > drop.top && cy < drop.bottom) {
+                    if (el.dataProps.valid) {
+                        playTone('ok');
+                        el.style.position = 'absolute';
+                        // Thả lung tung trong nhà cho tự nhiên
+                        el.style.left = (Math.random() * 50 + 20) + '%';
+                        el.style.top = (Math.random() * 40 + 30) + '%';
+                        el.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                        
+                        document.getElementById('house-target').appendChild(el);
+                        foundCount++;
+                        
+                        if (foundCount >= LEVELS[currentLevel].count) {
+                            setTimeout(() => {
+                                speak("Hoan hô, bé làm đúng rồi!");
+                                createConfetti();
+                                document.getElementById('win-screen').classList.remove('hidden');
+                            }, 500);
+                        }
+                    } else {
+                        playTone('wrong'); speak("Chưa đúng, bé nhìn kỹ nhé!");
+                        shake(el); resetPos(el);
+                    }
+                } else { resetPos(el); }
+            };
+
+            el.addEventListener('mousedown', start);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            el.addEventListener('touchstart', start, {passive:false});
+            window.addEventListener('touchmove', move, {passive:false});
+            window.addEventListener('touchend', end);
+        }
+
+        function resetPos(el) {
+            el.style.transition = 'all 0.3s';
+            el.style.position = 'relative'; el.style.left = 0; el.style.top = 0;
+            document.getElementById('source-zone').appendChild(el);
+            setTimeout(() => el.style.transition = '', 300);
+        }
+        function shake(el) {
+            el.animate([{transform:'translateX(0)'},{transform:'translateX(-10px)'},{transform:'translateX(10px)'},{transform:'translateX(0)'}], {duration:300});
+        }
+        function createConfetti() {
+            const c = ['#FF9F43', '#54a0ff', '#ff6b6b', '#1dd1a1'];
+            for(let i=0; i<40; i++) {
+                const p = document.createElement('div');
+                p.className = 'confetti';
+                p.style.left = Math.random()*100+'vw';
+                p.style.background = c[Math.floor(Math.random()*c.length)];
+                p.style.animationDuration = (Math.random()*2+2)+'s';
+                document.body.appendChild(p);
+            }
+        }
+    </script>
+</body>
+</html>
