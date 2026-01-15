@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Học Hình Khối</title>
+    <style>
+        /* --- GIAO DIỆN MỚI --- */
+        :root { --primary: #ff7675; --secondary: #74b9ff; --bg: #ffeaa7; }
+        body { margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; background-color: var(--bg); display: flex; flex-direction: column; height: 100vh; touch-action: none; }
+        
+        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; gap: 10px; }
+        .btn-icon { background: white; border: 3px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        
+        #top-bar { background: white; padding: 10px; text-align: center; border-bottom: 5px solid var(--secondary); z-index: 5; }
+        #instruction-text { color: #d63031; font-size: 1.3rem; font-weight: bold; margin-top: 5px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+
+        #drop-zone-container { flex: 2; display: flex; justify-content: center; align-items: center; position: relative; flex-direction: column; }
+        #shape-target { background-color: rgba(255, 255, 255, 0.6); border: 5px dashed #636e72; display: flex; justify-content: center; align-items: center; transition: all 0.3s; position: relative; color: rgba(0,0,0,0.2); font-size: 5rem; }
+
+        /* Các hình dạng */
+        .target-circle { width: 180px; height: 180px; border-radius: 50%; }
+        .target-square { width: 180px; height: 180px; border-radius: 15px; }
+        .target-rect { width: 250px; height: 150px; border-radius: 15px; }
+        .target-triangle { width: 0; height: 0; background-color: transparent !important; border: none !important; border-left: 100px solid transparent !important; border-right: 100px solid transparent !important; border-bottom: 180px solid rgba(255, 255, 255, 0.6) !important; }
+        .target-triangle::after { content: "🔺"; position: absolute; top: 80px; left: -25px; font-size: 3rem; opacity: 0.3; }
+
+        #drop-zone-label { margin-top: 10px; font-weight: bold; color: #636e72; font-size: 1.2rem; }
+
+        #source-zone { flex: 1; background: #fab1a0; border-top: 6px solid #e17055; display: flex; justify-content: space-around; align-items: center; padding: 10px; flex-wrap: wrap; }
+        .item-card { font-size: 4.5rem; cursor: grab; user-select: none; transition: transform 0.2s; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); touch-action: none; position: relative; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; }
+        .item-card:active { transform: scale(1.3); }
+
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; }
+        .btn-start { background: var(--primary); color: white; border: none; padding: 15px 40px; font-size: 1.8rem; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 6px #d63031; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
+        .hidden { display: none !important; }
+        .confetti { position: absolute; width: 10px; height: 10px; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button class="btn-icon" onclick="replayAudio()">🔊</button>
+    </div>
+
+    <div id="start-screen" class="overlay">
+        <h1 style="color: var(--primary);">🔷 HÌNH KHỐI VUI NHỘN 🔴</h1>
+        <p>Bé hãy tìm đúng hình dạng nhé!</p>
+        <button class="btn-start" onclick="initGame()">VÀO HỌC ▶️</button>
+    </div>
+
+    <div id="win-screen" class="overlay hidden">
+        <h1 style="color: #00b894;">🎉 GIỎI QUÁ! 🎉</h1>
+        <div style="font-size: 6rem;">⭐⭐⭐</div>
+        <button class="btn-start" onclick="nextLevel()">BÀI TIẾP THEO ➡️</button>
+    </div>
+
+    <div id="top-bar">
+        <div style="color: gray;">Bài <span id="level-num">1</span></div>
+        <div id="instruction-text">Đang tải...</div>
+    </div>
+
+    <div id="drop-zone-container">
+        <div id="shape-target" class="target-circle"></div>
+        <div id="drop-zone-label">Hình Tròn</div>
+    </div>
+
+    <div id="source-zone"></div>
+
+    <script>
+        // --- DỮ LIỆU AN TOÀN (Không dùng emoji lạ để tránh lỗi ô vuông) ---
+        const DB = [
+            { id: 'donut', icon: '🍩', shape: 'circle', color: 'brown' },
+            { id: 'ball', icon: '⚽', shape: 'circle', color: 'white' },
+            { id: 'clock', icon: '⏰', shape: 'circle', color: 'red' },
+            { id: 'cd', icon: '💿', shape: 'circle', color: 'gray' },
+            { id: 'cookie', icon: '🍪', shape: 'circle', color: 'brown' },
+            { id: 'moon', icon: '🌕', shape: 'circle', color: 'yellow' },
+
+            { id: 'gift', icon: '🎁', shape: 'square', color: 'red' },
+            { id: 'frame', icon: '🖼️', shape: 'square', color: 'brown' },
+            { id: 'brick', icon: '🧱', shape: 'square', color: 'red' },
+            { id: 'tv', icon: '📺', shape: 'square', color: 'black' },
+            { id: 'dice', icon: '🎲', shape: 'square', color: 'white' },
+
+            { id: 'bus', icon: '🚌', shape: 'rect', color: 'yellow' },
+            { id: 'book', icon: '📘', shape: 'rect', color: 'blue' },
+            { id: 'money', icon: '💵', shape: 'rect', color: 'green' },
+            { id: 'envelope', icon: '✉️', shape: 'rect', color: 'white' },
+            { id: 'phone', icon: '📱', shape: 'rect', color: 'black' },
+
+            { id: 'pizza', icon: '🍕', shape: 'triangle', color: 'yellow' },
+            { id: 'cone', icon: '⚠️', shape: 'triangle', color: 'yellow' },
+            { id: 'hat', icon: '🎉', shape: 'triangle', color: 'red' },
+            { id: 'mountain', icon: '🗻', shape: 'triangle', color: 'blue' },
+            { id: 'flag', icon: '🚩', shape: 'triangle', color: 'red' }
+        ];
+
+        const LEVELS = [
+            {
+                text: "Tìm 3 đồ vật HÌNH TRÒN giúp bác tài xế nào!",
+                targetClass: 'target-circle', targetName: "HÌNH TRÒN",
+                check: (d) => d.shape === 'circle',
+                count: 3,
+                pool: ['ball', 'clock', 'donut', 'book', 'frame', 'brick']
+            },
+            {
+                text: "Tìm 3 đồ vật HÌNH VUÔNG giúp chú thợ xây nhé!",
+                targetClass: 'target-square', targetName: "HÌNH VUÔNG",
+                check: (d) => d.shape === 'square',
+                count: 3,
+                pool: ['brick', 'tv', 'frame', 'pizza', 'ball', 'bus']
+            },
+            {
+                text: "Tìm 3 đồ vật HÌNH CHỮ NHẬT giúp cô giáo nào!",
+                targetClass: 'target-rect', targetName: "HÌNH CHỮ NHẬT",
+                check: (d) => d.shape === 'rect',
+                count: 3,
+                pool: ['book', 'envelope', 'phone', 'moon', 'dice', 'hat']
+            },
+            {
+                text: "Tìm 2 đồ vật HÌNH TAM GIÁC giúp đầu bếp nhé!",
+                targetClass: 'target-triangle', targetName: "HÌNH TAM GIÁC",
+                check: (d) => d.shape === 'triangle',
+                count: 2,
+                pool: ['pizza', 'cone', 'gift', 'money', 'clock']
+            },
+            {
+                text: "Tìm các đồ vật MÀU ĐỎ (Red) thả vào hộp nhé!",
+                targetClass: 'target-square', targetName: "MÀU ĐỎ",
+                check: (d) => d.color === 'red',
+                count: 3,
+                pool: ['gift', 'brick', 'hat', 'book', 'money', 'dice']
+            }
+        ];
+
+        let currentLevel = 0;
+        let foundCount = 0;
+        let audioCtx = null;
+        let vnVoice = null;
+
+        function initGame() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch(e) { console.log("Audio error but game continues"); }
+
+            document.getElementById('start-screen').classList.add('hidden');
+            loadLevel(0);
+        }
+
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            vnVoice = voices.find(v => v.lang.includes('vi') || v.name.includes('Viet'));
+        }
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        setTimeout(loadVoices, 500);
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'vi-VN';
+            if (vnVoice) msg.voice = vnVoice;
+            msg.rate = 0.95;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function playTone(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'ok') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            } else {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            }
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function loadLevel(idx) {
+            currentLevel = idx; foundCount = 0;
+            const lv = LEVELS[idx];
+            document.getElementById('instruction-text').innerText = lv.text;
+            document.getElementById('level-num').innerText = idx + 1;
+            document.getElementById('drop-zone-label').innerText = lv.targetName;
+            const target = document.getElementById('shape-target');
+            target.className = ''; target.classList.add(lv.targetClass);
+            document.getElementById('source-zone').innerHTML = '';
+            
+            setTimeout(() => speak(lv.text), 500);
+
+            let list = [...lv.pool].sort(() => Math.random() - 0.5);
+            list.forEach(id => {
+                const data = DB.find(x => x.id === id);
+                if(data) createItem(data);
+            });
+        }
+
+        function createItem(data) {
+            const el = document.createElement('div');
+            el.classList.add('item-card');
+            el.innerText = data.icon;
+            el.dataProps = data;
+            document.getElementById('source-zone').appendChild(el);
+            addDragEvents(el);
+        }
+
+        function replayAudio() { speak(LEVELS[currentLevel].text); }
+
+        function nextLevel() {
+            document.getElementById('win-screen').classList.add('hidden');
+            let next = currentLevel + 1;
+            if (next >= LEVELS.length) {
+                speak("Bé giỏi quá! Đã hoàn thành hết rồi!");
+                alert("Chúc mừng bé!"); next = 0;
+            }
+            loadLevel(next);
+        }
+
+        function addDragEvents(el) {
+            let isDragging = false;
+            let startX, startY, initLeft, initTop;
+
+            const start = (e) => {
+                if(el.parentNode.id === 'shape-target') return;
+                e.preventDefault(); isDragging = true;
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = el.getBoundingClientRect();
+                el.style.position = 'fixed';
+                el.style.left = rect.left + 'px'; el.style.top = rect.top + 'px';
+                el.style.zIndex = 1000;
+                startX = touch.clientX; startY = touch.clientY;
+                initLeft = rect.left; initTop = rect.top;
+            };
+
+            const move = (e) => {
+                if(!isDragging) return;
+                e.preventDefault();
+                const touch = e.touches ? e.touches[0] : e;
+                el.style.left = (initLeft + touch.clientX - startX) + 'px';
+                el.style.top = (initTop + touch.clientY - startY) + 'px';
+            };
+
+            const end = (e) => {
+                if(!isDragging) return;
+                isDragging = false; el.style.zIndex = '';
+                const drop = document.getElementById('shape-target').getBoundingClientRect();
+                const obj = el.getBoundingClientRect();
+                const cx = obj.left + obj.width/2; const cy = obj.top + obj.height/2;
+
+                if (cx > drop.left && cx < drop.right && cy > drop.top && cy < drop.bottom) {
+                    if (LEVELS[currentLevel].check(el.dataProps)) {
+                        playTone('ok');
+                        el.style.position = 'absolute';
+                        el.style.left = '50%'; el.style.top = '50%';
+                        el.style.transform = 'translate(-50%, -50%)';
+                        document.getElementById('shape-target').appendChild(el);
+                        foundCount++;
+                        if (foundCount >= LEVELS[currentLevel].count) {
+                            setTimeout(() => {
+                                speak("Hoan hô, đúng rồi!");
+                                createConfetti();
+                                document.getElementById('win-screen').classList.remove('hidden');
+                            }, 500);
+                        }
+                    } else {
+                        playTone('wrong'); speak("Chưa đúng, thử lại nhé!");
+                        shake(el); resetPos(el);
+                    }
+                } else { resetPos(el); }
+            };
+
+            el.addEventListener('mousedown', start);
+            window.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            el.addEventListener('touchstart', start, {passive:false});
+            window.addEventListener('touchmove', move, {passive:false});
+            window.addEventListener('touchend', end);
+        }
+
+        function resetPos(el) {
+            el.style.transition = 'all 0.3s';
+            el.style.position = 'relative'; el.style.left = 0; el.style.top = 0;
+            document.getElementById('source-zone').appendChild(el);
+            setTimeout(() => el.style.transition = '', 300);
+        }
+        function shake(el) {
+            el.animate([{transform:'translateX(0)'},{transform:'translateX(-10px)'},{transform:'translateX(10px)'},{transform:'translateX(0)'}], {duration:300});
+        }
+        function createConfetti() {
+            const c = ['#e17055', '#fdcb6e', '#00cec9', '#6c5ce7'];
+            for(let i=0; i<40; i++) {
+                const p = document.createElement('div');
+                p.className = 'confetti';
+                p.style.left = Math.random()*100+'vw';
+                p.style.background = c[Math.floor(Math.random()*c.length)];
+                p.style.animationDuration = (Math.random()*2+2)+'s';
+                document.body.appendChild(p);
+            }
+        }
+    </script>
+</body>
+</html>
