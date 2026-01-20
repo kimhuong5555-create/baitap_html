@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nông Trại Vui Vẻ - Học Đếm Số 4</title>
+    <style>
+        /* --- 4. GIAO DIỆN & PHONG CÁCH --- */
+        :root {
+            --primary-color: #FF9F43; /* Màu cam vui vẻ */
+            --bg-color: #E0F7FA; /* Màu xanh trời nhạt */
+            --basket-color: #8D6E63; /* Màu nâu gỗ */
+            --text-color: #2c3e50;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden; /* Chặn cuộn trang */
+            touch-action: none; /* Tối ưu cho thao tác chạm */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Màn hình chào & Kết thúc */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+        }
+
+        .btn-start {
+            background: #FF6B6B;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #D32F2F;
+            transition: transform 0.1s;
+            animation: pulse 1.5s infinite;
+        }
+
+        .btn-start:active {
+            transform: translateY(5px);
+            box-shadow: none;
+        }
+
+        /* Khu vực chơi game */
+        #game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        /* Thanh thông tin trên cùng */
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        #instruction {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #D84315;
+            animation: bounce 2s infinite;
+        }
+
+        /* Khu vực thả (Chuồng) */
+        #drop-zone {
+            flex: 1;
+            background-color: var(--basket-color);
+            border: 5px dashed #5D4037;
+            border-radius: 20px;
+            margin: 10px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><text x="10" y="70" font-size="60">🏠</text></svg>');
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            background-size: 100px;
+        }
+        
+        #drop-zone::after {
+            content: "Thả vào đây!";
+            position: absolute;
+            bottom: 5px;
+            color: white;
+            opacity: 0.7;
+        }
+
+        /* Khu vực chứa động vật (Nguồn) */
+        #source-zone {
+            height: 150px;
+            background-color: #AED581; /* Màu cỏ */
+            border-top: 5px solid #7CB342;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px;
+            border-radius: 20px 20px 0 0;
+        }
+
+        /* Đối tượng Emoji */
+        .animal {
+            font-size: 4rem; /* Kích thước lớn cho trẻ dễ thao tác */
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s;
+            position: absolute; /* Để script điều khiển vị trí */
+        }
+
+        .animal:active {
+            cursor: grabbing;
+            transform: scale(1.2);
+        }
+
+        /* Hiệu ứng Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-10px);}
+            60% {transform: translateY(-5px);}
+        }
+
+        .hidden { display: none !important; }
+        
+        /* Hiệu ứng pháo hoa đơn giản */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="overlay">
+        <h1>🐰 Nông Trại Vui Vẻ 🐶</h1>
+        <p>Giúp các bạn động vật về nhà nhé!</p>
+        <button class="btn-start" onclick="startGame()">Bắt Đầu Chơi ▶️</button>
+    </div>
+
+    <div id="win-screen" class="overlay hidden">
+        <h1 style="font-size: 4rem;">🎉 TUYỆT VỜI! 🎉</h1>
+        <p style="font-size: 1.5rem;">Bé đã tìm đủ 4 bạn rồi!</p>
+        <div style="font-size: 5rem;">⭐⭐⭐</div>
+        <button class="btn-start" onclick="nextLevel()">Chơi Tiếp ➡️</button>
+    </div>
+
+    <div id="game-area">
+        <div id="hud">
+            <span id="timer">⏳ 00:00</span>
+            <span id="score">Đã tìm: <span id="current-count" style="color:red; font-size: 2rem;">0</span>/4</span>
+        </div>
+        
+        <div id="instruction"></div>
+
+        <div id="drop-zone"></div>
+
+        <div id="source-zone">
+            </div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH & DỮ LIỆU ---
+        const LEVELS = [
+            { target: '🐱', distractor: '🐶', name: 'Mèo', task: 'Tìm 4 bạn Mèo' },
+            { target: '🐶', distractor: '🐷', name: 'Chó', task: 'Tìm 4 bạn Chó' },
+            { target: '🐰', distractor: '🐢', name: 'Thỏ', task: 'Tìm 4 bạn Thỏ' },
+            { target: '🐸', distractor: '🐔', name: 'Ếch', task: 'Tìm 4 bạn Ếch' }
+        ];
+
+        let currentLevelIndex = 0;
+        let foundCount = 0;
+        let timerInterval;
+        let seconds = 0;
+
+        // --- ÂM THANH (Sử dụng Web Audio API để không cần file ngoài) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'win') {
+                // Giai điệu chiến thắng đơn giản
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.4);
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+                osc.start(); osc.stop(audioCtx.currentTime + 1);
+            }
+        }
+
+        // --- LOGIC GAME ---
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            loadLevel(currentLevelIndex);
+            startTimer();
+        }
+
+        function startTimer() {
+            seconds = 0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                seconds++;
+                let mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                let secs = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer').innerText = `⏳ ${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function loadLevel(index) {
+            foundCount = 0;
+            updateCountDisplay();
+            const levelData = LEVELS[index];
+            document.getElementById('instruction').innerText = `📢 ${levelData.task} (${levelData.target}) thả vào chuồng!`;
+            
+            const sourceZone = document.getElementById('source-zone');
+            const dropZone = document.getElementById('drop-zone');
+            
+            // Xóa cũ
+            sourceZone.innerHTML = '';
+            dropZone.innerHTML = '';
+
+            // Tạo danh sách động vật: 4 đúng + 3 sai
+            let animals = [];
+            for(let i=0; i<4; i++) animals.push({char: levelData.target, type: 'correct'});
+            for(let i=0; i<3; i++) animals.push({char: levelData.distractor, type: 'wrong'});
+            
+            // Trộn ngẫu nhiên
+            animals.sort(() => Math.random() - 0.5);
+
+            // Render ra màn hình
+            animals.forEach(item => {
+                const el = document.createElement('div');
+                el.classList.add('animal');
+                el.innerText = item.char;
+                el.dataset.type = item.type;
+                
+                // Vị trí ngẫu nhiên trong Source Zone
+                sourceZone.appendChild(el);
+                // Cần set position relative cho Source zone để sắp xếp đẹp hơn, 
+                // nhưng với trẻ nhỏ, ta dùng flexbox ở source-zone, 
+                // sau đó chuyển sang absolute khi bắt đầu kéo.
+                el.style.position = 'relative'; 
+                
+                addDragEvents(el);
+            });
+        }
+
+        function updateCountDisplay() {
+            document.getElementById('current-count').innerText = foundCount;
+        }
+
+        function nextLevel() {
+            document.getElementById('win-screen').classList.add('hidden');
+            currentLevelIndex++;
+            if (currentLevelIndex >= LEVELS.length) currentLevelIndex = 0; // Loop lại
+            loadLevel(currentLevelIndex);
+            startTimer();
+        }
+
+        // --- XỬ LÝ KÉO THẢ (TOUCH & MOUSE) ---
+        // Viết thủ công để mượt mà trên cả Mobile và PC
+        function addDragEvents(el) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            const startDrag = (e) => {
+                e.preventDefault(); // Ngăn cuộn trang trên mobile
+                isDragging = true;
+                
+                // Lấy vị trí touch hoặc mouse
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                // Chuyển sang absolute để kéo tự do
+                const rect = el.getBoundingClientRect();
+                el.style.position = 'fixed'; // Dùng fixed để không bị đè bởi container
+                el.style.left = rect.left + 'px';
+                el.style.top = rect.top + 'px';
+                el.style.zIndex = 1000;
+                
+                startX = clientX;
+                startY = clientY;
+                initialLeft = rect.left;
+                initialTop = rect.top;
+            };
+
+            const doDrag = (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+
+                el.style.left = (initialLeft + dx) + 'px';
+                el.style.top = (initialTop + dy) + 'px';
+            };
+
+            const stopDrag = (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                el.style.zIndex = '';
+
+                // Kiểm tra va chạm với Drop Zone
+                const dropZone = document.getElementById('drop-zone');
+                const dropRect = dropZone.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+
+                // Logic va chạm đơn giản (tâm của vật nằm trong vùng thả)
+                const elCenterX = elRect.left + elRect.width / 2;
+                const elCenterY = elRect.top + elRect.height / 2;
+
+                const isInside = (
+                    elCenterX > dropRect.left &&
+                    elCenterX < dropRect.right &&
+                    elCenterY > dropRect.top &&
+                    elCenterY < dropRect.bottom
+                );
+
+                if (isInside) {
+                    if (el.dataset.type === 'correct') {
+                        // ĐÚNG
+                        if (foundCount < 4) {
+                            foundCount++;
+                            updateCountDisplay();
+                            playSound('correct');
+                            
+                            // Đặt vật vào drop zone (chuyển cha)
+                            el.style.position = 'relative';
+                            el.style.left = '0';
+                            el.style.top = '0';
+                            el.style.margin = '10px';
+                            // Xóa sự kiện kéo để không kéo ra ngoài được nữa
+                            removeDragEvents(el);
+                            dropZone.appendChild(el);
+
+                            if (foundCount === 4) {
+                                setTimeout(handleWin, 500);
+                            }
+                        } else {
+                             // Đã đủ 4 con rồi, trả về chỗ cũ
+                             returnToSource(el);
+                        }
+                    } else {
+                        // SAI (Kéo nhầm con vật)
+                        playSound('wrong');
+                        shakeEffect(el);
+                        returnToSource(el);
+                    }
+                } else {
+                    // Thả ra ngoài -> bay về chỗ cũ
+                    returnToSource(el);
+                }
+            };
+
+            // Gán sự kiện cho cả chuột và cảm ứng
+            el.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+            
+            el.addEventListener('touchstart', startDrag, {passive: false});
+            document.addEventListener('touchmove', doDrag, {passive: false});
+            document.addEventListener('touchend', stopDrag);
+            
+            // Lưu tham chiếu để xóa sau này
+            el._dragHandlers = { startDrag, doDrag, stopDrag };
+        }
+
+        function removeDragEvents(el) {
+            // Clone node để xóa sạch event listeners nhanh nhất
+            const newEl = el.cloneNode(true);
+            el.parentNode.replaceChild(newEl, el);
+        }
+
+        function returnToSource(el) {
+            el.style.transition = 'all 0.5s ease';
+            el.style.position = 'relative';
+            el.style.left = '0';
+            el.style.top = '0';
+            document.getElementById('source-zone').appendChild(el);
+            setTimeout(() => { el.style.transition = ''; }, 500);
+        }
+
+        function shakeEffect(el) {
+            el.animate([
+                { transform: 'translate(0, 0)' },
+                { transform: 'translate(-10px, 0)' },
+                { transform: 'translate(10px, 0)' },
+                { transform: 'translate(0, 0)' }
+            ], {
+                duration: 300,
+                iterations: 1
+            });
+        }
+
+        function handleWin() {
+            playSound('win');
+            createConfetti();
+            document.getElementById('win-screen').classList.remove('hidden');
+        }
+
+        function createConfetti() {
+            const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f'];
+            for (let i = 0; i < 50; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animationDuration = Math.random() * 2 + 2 + 's';
+                document.body.appendChild(conf);
+                setTimeout(() => conf.remove(), 4000);
+            }
+        }
+    </script>
+</body>
+</html>
