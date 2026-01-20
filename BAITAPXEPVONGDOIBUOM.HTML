@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Khám Phá Thế Giới Động Vật</title>
+    <style>
+        /* --- GIAO DIỆN TƯƠI SÁNG (Màu sắc theo chủ đề thiên nhiên) --- */
+        :root {
+            --primary: #badc58; /* Xanh lá mạ */
+            --secondary: #6ab04c; /* Xanh lá đậm */
+            --accent: #f9ca24; /* Vàng */
+            --bg: #f6e58d; /* Nền kem vàng */
+            --text: #2d3436;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg); display: flex; flex-direction: column;
+            height: 100vh; touch-action: none; user-select: none;
+            background-image: radial-gradient(#f9ca24 15%, transparent 16%), radial-gradient(#f9ca24 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            background-color: #f6e58d;
+        }
+
+        /* Nút Loa & Điều khiển */
+        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; gap: 10px; }
+        .btn-icon {
+            background: white; border: 3px solid var(--secondary); border-radius: 50%;
+            width: 45px; height: 45px; font-size: 1.2rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px rgba(0,0,0,0.1); transition: transform 0.2s;
+        }
+        .btn-icon:active { transform: scale(0.9); }
+
+        /* Thanh Đề Bài */
+        #top-bar {
+            background: white; padding: 10px 15px; text-align: center;
+            border-bottom: 5px solid var(--secondary); z-index: 5;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+        }
+        #instruction-text {
+            color: #eb4d4b; font-size: clamp(1rem, 4vw, 1.5rem); font-weight: bold; margin-top: 5px; min-height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            text-shadow: 1px 1px 0px #fff;
+        }
+        #level-indicator { font-size: 0.9rem; color: #636e72; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- KHU VỰC CHƠI (DROP ZONE) --- */
+        #game-board {
+            flex: 1; display: flex; justify-content: center; align-items: center; 
+            flex-wrap: wrap; gap: 10px; padding: 10px; position: relative;
+            overflow-y: auto; align-content: center;
+        }
+
+        /* Ô chứa Vòng đời (Có số 1,2,3,4) */
+        .lifecycle-slot {
+            width: clamp(70px, 18vw, 110px); height: clamp(70px, 18vw, 110px);
+            border: 4px dashed #6ab04c; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(255,255,255,0.7); position: relative;
+            margin: 5px; transition: background 0.3s;
+        }
+        .lifecycle-slot.highlight { background: rgba(186, 220, 88, 0.5); transform: scale(1.05); border-style: solid; }
+        .slot-number {
+            position: absolute; top: 0; left: 0;
+            background: #f9ca24; color: #2d3436; width: 25px; height: 25px;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            font-weight: bold; border: 2px solid white; z-index: 2; font-size: 0.9rem;
+        }
+        .arrow-next { font-size: 1.5rem; color: #6ab04c; font-weight: bold; opacity: 0.6; }
+
+        /* Ô chứa Môi trường sống (Thẻ to) */
+        .habitat-target {
+            width: clamp(100px, 22vw, 160px); height: clamp(100px, 22vw, 160px);
+            border: 4px solid white; border-radius: 20px;
+            background: #dff9fb; position: relative;
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+            box-shadow: 0 5px rgba(0,0,0,0.1); overflow: visible;
+            margin: 5px;
+        }
+        .habitat-icon { font-size: 3rem; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); opacity: 0.3; }
+        .habitat-label { 
+            background: rgba(255,255,255,0.95); width: 100%; text-align: center; 
+            padding: 5px 0; font-weight: bold; color: #2d3436; font-size: 0.8rem; z-index: 2;
+            border-radius: 0 0 16px 16px;
+        }
+
+        /* Ô Hành động đúng (Ngôi nhà Bé Ngoan) */
+        .good-house {
+            width: clamp(200px, 60vw, 300px); height: clamp(200px, 60vw, 300px);
+            background: white;
+            border-radius: 20px;
+            border: 5px solid #6ab04c;
+            position: relative;
+            display: flex; justify-content: center; align-items: flex-end;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 10 L90 40 V90 H10 V40 Z' fill='%23badc58' stroke='%236ab04c' stroke-width='2'/%3E%3Crect x='35' y='55' width='30' height='35' fill='%23eb4d4b' rx='2'/%3E%3Ccircle cx='50' cy='35' r='8' fill='white' opacity='0.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            background-size: 90%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .good-house::after {
+            content: 'THẢ HÀNH ĐỘNG TỐT VÀO ĐÂY';
+            position: absolute; top: 10px; width: 100%; text-align: center;
+            font-size: 0.9rem; font-weight: bold; color: #2d3436;
+        }
+
+        /* --- KHU VỰC THẺ ĐỂ KÉO (SOURCE) --- */
+        #source-zone {
+            height: 130px; background: #c7ecee; border-top: 6px solid #95afc0;
+            display: flex; justify-content: center; align-items: center; padding: 10px; 
+            gap: 15px; overflow-x: auto; flex-shrink: 0; white-space: nowrap;
+        }
+
+        .item-card {
+            width: 80px; height: 80px; flex-shrink: 0;
+            background: white; border-radius: 15px;
+            cursor: grab; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 0 4px rgba(0,0,0,0.2); touch-action: none; position: relative;
+            transition: transform 0.2s; border: 3px solid white;
+        }
+        .item-card img { width: 70%; height: 70%; object-fit: contain; pointer-events: none; }
+        .item-card span { font-size: 3rem; line-height: 1; pointer-events: none; }
+        .item-card.dragging { opacity: 0.8; transform: scale(1.1) rotate(5deg); z-index: 1000; box-shadow: 0 15px 30px rgba(0,0,0,0.3); pointer-events: none; position: fixed;} 
+        
+        .action-text {
+            font-size: 0.6rem; text-align: center; margin-top: 2px;
+            width: 100%; white-space: normal; line-height: 1.1; font-weight: bold; pointer-events: none;
+            padding: 0 2px;
+        }
+
+        /* Màn hình Chào/Thắng */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; text-align: center; padding: 20px; box-sizing: border-box;
+        }
+        .btn-start {
+            background: #eb4d4b; color: white; border: none;
+            padding: 15px 40px; font-size: 1.5rem; border-radius: 50px;
+            cursor: pointer; margin-top: 20px; box-shadow: 0 6px #c0392b;
+            font-weight: bold; font-family: inherit;
+            animation: pulse 1.5s infinite;
+        }
+        .btn-start:active { transform: translateY(4px); box-shadow: 0 2px #c0392b; }
+        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
+        
+        .hidden { display: none !important; }
+        
+        /* Hiệu ứng tung hoa */
+        .confetti { position: absolute; width: 10px; height: 10px; animation: fall linear forwards; pointer-events: none; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+
+        /* SVG Icons defined as CSS Variables for cleanliness or used inline in JS */
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button class="btn-icon" onclick="replayAudio()" title="Nghe lại">🔊</button>
+        <button class="btn-icon" onclick="toggleMusic()" title="Nhạc nền">🎵</button>
+    </div>
+
+    <!-- Màn hình chào -->
+    <div id="start-screen" class="overlay">
+        <div style="font-size: 4rem;">🦋🌿</div>
+        <h1 style="color: #6ab04c; margin: 10px 0;">BÉ KHÁM PHÁ THIÊN NHIÊN</h1>
+        <p style="font-size: 1.2rem; color: #555;">Học về vòng đời, nơi ở và bảo vệ môi trường</p>
+        <button class="btn-start" onclick="initGame()">BẮT ĐẦU CHƠI ▶️</button>
+    </div>
+
+    <!-- Màn hình chiến thắng -->
+    <div id="win-screen" class="overlay hidden">
+        <h1 style="color: #f0932b; font-size: 2.5rem; margin-bottom: 0;">HOAN HÔ! 🎉</h1>
+        <div style="font-size: 5rem; margin: 10px;">⭐⭐⭐</div>
+        <p id="win-msg" style="font-size: 1.3rem; font-weight: bold; color: #2d3436;">Bé làm đúng rồi!</p>
+        <button id="next-btn" class="btn-start" onclick="nextLevel()">BÀI TIẾP THEO ➡️</button>
+    </div>
+
+    <div id="top-bar">
+        <div id="level-indicator">Bài <span id="level-num">1</span>/3</div>
+        <div id="instruction-text">Đang tải...</div>
+    </div>
+
+    <div id="game-board">
+        <!-- Drop zones will be generated here -->
+    </div>
+
+    <div id="source-zone">
+        <!-- Draggable items will be generated here -->
+    </div>
+
+    <script>
+        // --- 1. DỮ LIỆU & ASSETS ---
+        
+        // Inline SVG Assets (Thay thế ảnh png)
+        const SVGS = {
+            egg: `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="50" rx="30" ry="40" fill="#fff" stroke="#dfe6e9" stroke-width="2"/><circle cx="40" cy="40" r="5" fill="#dfe6e9"/></svg>`,
+            larva: `<svg viewBox="0 0 100 100"><circle cx="20" cy="60" r="15" fill="#badc58"/><circle cx="40" cy="55" r="15" fill="#badc58"/><circle cx="60" cy="60" r="15" fill="#badc58"/><circle cx="80" cy="55" r="18" fill="#6ab04c"/><circle cx="75" cy="50" r="2" fill="black"/><circle cx="85" cy="50" r="2" fill="black"/><path d="M75 40 L70 25 M85 40 L90 25" stroke="black" stroke-width="2"/></svg>`,
+            cocoon: `<svg viewBox="0 0 100 100"><path d="M50 10 L50 30 Q70 50 50 90 Q30 50 50 30" fill="#f1c40f" stroke="#f39c12" stroke-width="2"/></svg>`,
+            butterfly: `<svg viewBox="0 0 100 100"><path d="M50 50 Q20 10 10 40 Q20 90 50 70 Q80 90 90 40 Q80 10 50 50" fill="#e056fd"/><ellipse cx="50" cy="50" rx="5" ry="30" fill="#2d3436"/><path d="M48 25 L35 10 M52 25 L65 10" stroke="black" stroke-width="2"/></svg>`,
+            // Các con vật khác dùng Emoji cho nhanh và dễ thương
+        };
+
+        const LEVELS = [
+            {
+                type: 'order',
+                text: "Bé hãy xếp vòng đời của Bướm: 1.Trứng - 2.Sâu - 3.Kén - 4.Bướm",
+                targets: [
+                    { id: 't1', label: '1', req: 'egg' },
+                    { id: 't2', label: '2', req: 'larva' },
+                    { id: 't3', label: '3', req: 'cocoon' },
+                    { id: 't4', label: '4', req: 'butterfly' }
+                ],
+                items: [
+                    { id: 'larva', svg: SVGS.larva, name: 'Sâu' },
+                    { id: 'butterfly', svg: SVGS.butterfly, name: 'Bướm' },
+                    { id: 'egg', svg: SVGS.egg, name: 'Trứng' }, 
+                    { id: 'cocoon', svg: SVGS.cocoon, name: 'Kén' }
+                ]
+            },
+            {
+                type: 'match',
+                text: "Bé hãy đưa các con vật về đúng nhà của chúng nhé!",
+                targets: [
+                    { id: 'water', icon: '🌊', label: 'DƯỚI NƯỚC', req: 'fish', bg: '#74b9ff' },
+                    { id: 'forest', icon: '🌲', label: 'TRONG RỪNG', req: 'tiger', bg: '#55efc4' },
+                    { id: 'leaf', icon: '🍃', label: 'TRÊN LÁ', req: 'larva', bg: '#a3cb38' },
+                    { id: 'farm', icon: '🛖', label: 'NÔNG TRẠI', req: 'pig', bg: '#ffeaa7' }
+                ],
+                items: [
+                    { id: 'tiger', icon: '🐯', name: 'Hổ' },
+                    { id: 'fish', icon: '🐟', name: 'Cá' },
+                    { id: 'pig', icon: '🐷', name: 'Heo' },
+                    { id: 'larva', svg: SVGS.larva, name: 'Sâu' }
+                ]
+            },
+            {
+                type: 'action',
+                text: "Hành động nào là BÉ NGOAN? Hãy chọn và thả vào ngôi nhà!",
+                targets: [
+                    { id: 'good_house', label: '', req: 'good' }
+                ],
+                items: [
+                    { id: 'a1', icon: '🛡️', type: 'good', text: 'Bảo vệ kén', color: 'green' },
+                    { id: 'a2', icon: '🚫🐱', type: 'good', text: 'Cản mèo', color: 'green' },
+                    { id: 'a3', icon: '👀', type: 'good', text: 'Chỉ ngắm thôi', color: 'green' },
+                    { id: 'b1', icon: '🤏', type: 'bad', text: 'Sờ vào sâu', color: 'red' },
+                    { id: 'b2', icon: '🔨', type: 'bad', text: 'Phá kén', color: 'red' },
+                    { id: 'b3', icon: '🗑️', type: 'bad', text: 'Vứt rác bừa', color: 'red' }
+                ]
+            }
+        ];
+
+        // Global State
+        let currentLevelIndex = 0;
+        let itemsPlaced = 0;
+        let totalItems = 0;
+        let synth = window.speechSynthesis;
+        let bgMusic = null;
+        let isMusicPlaying = false;
+        let draggingItem = null;
+        let startX, startY;
+        let originalParent = null;
+
+        // --- 2. HỆ THỐNG ÂM THANH ---
+        function createOscillatorSound(type) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!window.audioCtx) window.audioCtx = new AudioContext();
+            
+            const ctx = window.audioCtx;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            } else if (type === 'win') {
+                // Hợp âm chiến thắng
+                [400, 500, 600, 800].forEach((freq, i) => {
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.connect(g);
+                    g.connect(ctx.destination);
+                    o.frequency.value = freq;
+                    g.gain.value = 0.1;
+                    o.start(ctx.currentTime + i*0.1);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.1 + 0.5);
+                    o.stop(ctx.currentTime + i*0.1 + 0.5);
+                });
+            }
+        }
+
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 0.9;
+            // Cố gắng tìm giọng tiếng Việt
+            const voices = synth.getVoices();
+            const viVoice = voices.find(v => v.lang.includes('vi'));
+            if (viVoice) utterance.voice = viVoice;
+            synth.speak(utterance);
+        }
+
+        function replayAudio() {
+            speak(LEVELS[currentLevelIndex].text);
+        }
+
+        function toggleMusic() {
+            // Giả lập nhạc nền bằng loop đơn giản nếu cần, ở đây chỉ toggle trạng thái
+            isMusicPlaying = !isMusicPlaying;
+            // Thực tế nên dùng thẻ <audio> với file mp3 nhẹ
+            alert(isMusicPlaying ? "Đã bật nhạc (Mô phỏng)" : "Đã tắt nhạc");
+        }
+
+        // --- 3. LOGIC GAME ---
+
+        function initGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            // Cần tương tác người dùng để bật AudioContext
+            if (!window.audioCtx) window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            window.audioCtx.resume();
+            
+            loadLevel(0);
+        }
+
+        function nextLevel() {
+            document.getElementById('win-screen').classList.add('hidden');
+            currentLevelIndex++;
+            if (currentLevelIndex >= LEVELS.length) {
+                // Reset về đầu hoặc màn hình kết thúc toàn bộ
+                currentLevelIndex = 0;
+            }
+            loadLevel(currentLevelIndex);
+        }
+
+        function loadLevel(idx) {
+            const level = LEVELS[idx];
+            const board = document.getElementById('game-board');
+            const source = document.getElementById('source-zone');
+            const instruction = document.getElementById('instruction-text');
+            const lvlNum = document.getElementById('level-num');
+
+            // Reset
+            board.innerHTML = '';
+            source.innerHTML = '';
+            itemsPlaced = 0;
+            lvlNum.textContent = idx + 1;
+            
+            instruction.textContent = level.text;
+            setTimeout(() => speak(level.text), 500);
+
+            // Render Targets
+            if (level.type === 'order') {
+                level.targets.forEach((t, i) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'lifecycle-slot';
+                    slot.dataset.req = t.req;
+                    slot.innerHTML = `<div class="slot-number">${t.label}</div>`;
+                    board.appendChild(slot);
+                    
+                    if (i < level.targets.length - 1) {
+                        const arrow = document.createElement('div');
+                        arrow.className = 'arrow-next';
+                        arrow.innerHTML = '➔';
+                        board.appendChild(arrow);
+                    }
+                });
+                totalItems = level.targets.length;
+            } else if (level.type === 'match') {
+                level.targets.forEach(t => {
+                    const slot = document.createElement('div');
+                    slot.className = 'habitat-target';
+                    slot.dataset.req = t.req;
+                    slot.style.backgroundColor = t.bg || '#dff9fb';
+                    slot.innerHTML = `
+                        <div class="habitat-icon">${t.icon}</div>
+                        <div class="habitat-label">${t.label}</div>
+                    `;
+                    board.appendChild(slot);
+                });
+                totalItems = level.targets.length;
+            } else if (level.type === 'action') {
+                const house = document.createElement('div');
+                house.className = 'good-house';
+                house.dataset.req = 'good'; // Chấp nhận mọi item loại 'good'
+                board.appendChild(house);
+                // Đếm số item tốt cần thả
+                totalItems = level.items.filter(i => i.type === 'good').length;
+            }
+
+            // Render Items (Shuffle items for difficulty)
+            const shuffledItems = [...level.items].sort(() => Math.random() - 0.5);
+            shuffledItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.dataset.id = item.id;
+                
+                // Thuộc tính đặc biệt cho level 3
+                if (level.type === 'action') {
+                    card.dataset.type = item.type;
+                    card.style.borderColor = item.type === 'good' ? '#6ab04c' : '#eb4d4b';
+                }
+
+                let content = '';
+                if (item.svg) {
+                    content = `<div style="width:50px; height:50px">${item.svg}</div>`;
+                } else {
+                    content = `<span>${item.icon}</span>`;
+                }
+                
+                if (item.text) {
+                    content += `<div class="action-text">${item.text}</div>`;
+                } else if (item.name) {
+                    content += `<div class="action-text">${item.name}</div>`;
+                }
+
+                card.innerHTML = content;
+                
+                // Add Drag Events
+                addDragEvents(card);
+                source.appendChild(card);
+            });
+        }
+
+        // --- 4. DRAG & DROP LOGIC (Unified Mouse & Touch) ---
+        function addDragEvents(el) {
+            el.addEventListener('mousedown', startDrag);
+            el.addEventListener('touchstart', startDrag, { passive: false });
+        }
+
+        function startDrag(e) {
+            e.preventDefault(); // Ngăn scroll
+            const touch = e.touches ? e.touches[0] : e;
+            
+            draggingItem = e.target.closest('.item-card');
+            if (!draggingItem) return;
+
+            // Save original position/parent to revert if needed
+            originalParent = draggingItem.parentElement;
+            
+            // Create a clone for visual dragging
+            const clone = draggingItem.cloneNode(true);
+            clone.classList.add('dragging');
+            // Căn giữa ngón tay
+            clone.style.left = (touch.clientX - 40) + 'px';
+            clone.style.top = (touch.clientY - 40) + 'px';
+            
+            document.body.appendChild(clone);
+            draggingItem.style.opacity = '0'; // Hide original
+
+            // Bind move/end events to document
+            const moveHandler = (ev) => moveDrag(ev, clone);
+            const endHandler = (ev) => endDrag(ev, clone, moveHandler, endHandler);
+
+            document.addEventListener('mousemove', moveHandler);
+            document.addEventListener('touchmove', moveHandler, { passive: false });
+            document.addEventListener('mouseup', endHandler);
+            document.addEventListener('touchend', endHandler);
+        }
+
+        function moveDrag(e, clone) {
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : e;
+            clone.style.left = (touch.clientX - 40) + 'px';
+            clone.style.top = (touch.clientY - 40) + 'px';
+        }
+
+        function endDrag(e, clone, moveFn, endFn) {
+            // Remove listeners
+            document.removeEventListener('mousemove', moveFn);
+            document.removeEventListener('touchmove', moveFn);
+            document.removeEventListener('mouseup', endFn);
+            document.removeEventListener('touchend', endFn);
+
+            // Check Drop Target
+            clone.style.display = 'none'; // Hide to check element below
+            let targetEl = null;
+            
+            // Lấy tọa độ thả
+            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+            
+            const elementBelow = document.elementFromPoint(clientX, clientY);
+            clone.style.display = 'flex'; // Show again for animation
+
+            // Tìm target hợp lệ (lên cây DOM)
+            if (elementBelow) {
+                targetEl = elementBelow.closest('.lifecycle-slot, .habitat-target, .good-house');
+            }
+
+            if (targetEl && checkMatch(draggingItem, targetEl)) {
+                // Match!
+                handleCorrectDrop(draggingItem, targetEl, clone);
+            } else {
+                // Fail
+                createOscillatorSound('wrong');
+                // Animation quay về
+                clone.style.transition = 'all 0.3s';
+                const rect = draggingItem.getBoundingClientRect();
+                clone.style.left = rect.left + 'px';
+                clone.style.top = rect.top + 'px';
+                
+                setTimeout(() => {
+                    clone.remove();
+                    draggingItem.style.opacity = '1';
+                    draggingItem = null;
+                }, 300);
+                
+                // Nếu thả sai trong Level 3, nói nhắc nhở
+                if (LEVELS[currentLevelIndex].type === 'action' && draggingItem.dataset.type === 'bad' && targetEl) {
+                    speak("Không được làm vậy đâu nhé!");
+                }
+            }
+        }
+
+        function checkMatch(item, target) {
+            const levelType = LEVELS[currentLevelIndex].type;
+            
+            if (levelType === 'action') {
+                return item.dataset.type === target.dataset.req;
+            } else {
+                return item.dataset.id === target.dataset.req;
+            }
+        }
+
+        function handleCorrectDrop(item, target, clone) {
+            createOscillatorSound('correct');
+            clone.remove();
+            
+            // Xử lý hiển thị item trong target
+            item.style.opacity = '1';
+            item.style.position = 'static';
+            item.style.transform = 'scale(0.8)';
+            item.style.border = 'none';
+            item.style.boxShadow = 'none';
+            item.draggable = false;
+            
+            // Xóa sự kiện drag cũ
+            const newItem = item.cloneNode(true);
+            if (LEVELS[currentLevelIndex].type === 'action') {
+                // Với level Action, item biến mất vào nhà
+                newItem.style.display = 'none'; 
+                // Hiệu ứng ngôi nhà nảy lên
+                target.animate([
+                    { transform: 'scale(1)' },
+                    { transform: 'scale(1.1)' },
+                    { transform: 'scale(1)' }
+                ], 300);
+            } else {
+                // Clear nội dung cũ của target (nếu là số) và append item
+                if (target.classList.contains('lifecycle-slot')) {
+                    // Giữ lại số slot-number nếu muốn, hoặc ẩn đi
+                    // target.innerHTML = ''; 
+                }
+                target.appendChild(newItem);
+                // Ẩn ở source zone
+                item.style.visibility = 'hidden'; 
+            }
+
+            itemsPlaced++;
+            checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            if (itemsPlaced >= totalItems) {
+                setTimeout(() => {
+                    createOscillatorSound('win');
+                    fireConfetti();
+                    const winScreen = document.getElementById('win-screen');
+                    const msg = document.getElementById('win-msg');
+                    winScreen.classList.remove('hidden');
+                    
+                    if (currentLevelIndex === LEVELS.length - 1) {
+                        msg.textContent = "BÉ ĐÃ HOÀN THÀNH TẤT CẢ BÀI HỌC!";
+                        document.getElementById('next-btn').textContent = "CHƠI LẠI TỪ ĐẦU 🔄";
+                        speak("Chúc mừng bé đã hoàn thành xuất sắc tất cả bài học!");
+                    } else {
+                        msg.textContent = "BÉ GIỎI QUÁ!";
+                        document.getElementById('next-btn').textContent = "BÀI TIẾP THEO ➡️";
+                        speak("Bé giỏi quá! Mình cùng sang bài tiếp theo nhé.");
+                    }
+                }, 500);
+            }
+        }
+
+        function fireConfetti() {
+            for (let i = 0; i < 50; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = ['#badc58', '#f9ca24', '#eb4d4b', '#6ab04c'][Math.floor(Math.random()*4)];
+                conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                document.body.appendChild(conf);
+                setTimeout(() => conf.remove(), 4000);
+            }
+        }
+
+        // Tải danh sách giọng đọc khi trình duyệt sẵn sàng
+        window.speechSynthesis.onvoiceschanged = () => {
+            console.log("Voices loaded");
+        };
+
+    </script>
+</body>
+</html>
