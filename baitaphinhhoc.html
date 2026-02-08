@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Thám Tử Hình Học Tài Ba</title>
+    <style>
+        :root {
+            --bg-game: #E0F7FA;
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --color-circle: #FF5252;
+            --color-square: #448AFF;
+            --color-rect: #FFC107;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: var(--bg-game);
+            font-family: var(--font-main); touch-action: none; user-select: none;
+        }
+
+        #game-container {
+            width: 100vw; height: 100vh; position: relative;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* Giao diện UI phía trên */
+        #header {
+            margin-top: 15px; text-align: center; z-index: 100;
+            padding: 0 10px;
+        }
+        h1 { color: #006064; margin: 0; font-size: 24px; text-transform: uppercase; }
+        #instruction-box {
+            background: white; padding: 10px 20px; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 10px;
+            font-size: 20px; font-weight: bold; color: #333;
+            min-height: 30px; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Khu vực chơi game */
+        #play-area { flex-grow: 1; width: 100%; position: relative; overflow: hidden; }
+
+        /* Màn 1: Ngôi nhà */
+        .house {
+            position: absolute; bottom: 20px; width: 120px; height: 150px;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+            transition: transform 0.3s;
+        }
+        .house-label { font-weight: bold; margin-top: 5px; font-size: 14px; }
+
+        /* Đối tượng tương tác */
+        .game-object {
+            position: absolute; cursor: pointer; z-index: 10;
+            transition: transform 0.2s, opacity 0.3s;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        /* Hiệu ứng */
+        .shake { animation: shakeAnim 0.4s ease-in-out; }
+        @keyframes shakeAnim {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .correct-pop { transform: scale(1.5); opacity: 0; }
+
+        /* Overlay thông báo */
+        #overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 1000; color: white; text-align: center;
+        }
+        .btn-big {
+            padding: 20px 50px; font-size: 30px; border: none; border-radius: 50px;
+            background: #FF4081; color: white; cursor: pointer; font-weight: bold;
+            box-shadow: 0 6px 0 #C2185B; transition: 0.2s; margin-top: 20px;
+        }
+        .btn-big:active { transform: translateY(4px); box-shadow: none; }
+
+        /* Thanh đếm (Màn 4) */
+        #counter-badge {
+            position: absolute; top: 10px; right: 20px;
+            background: #FF4081; color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 24px; font-weight: bold;
+            display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <h1>🔍 THÁM TỬ HÌNH HỌC</h1>
+        <div id="instruction-box">Đang chuẩn bị...</div>
+    </div>
+
+    <div id="counter-badge">0 / 0</div>
+
+    <div id="play-area"></div>
+
+    <div id="overlay">
+        <h2 style="font-size: 40px; margin-bottom: 10px;">Bé Đã Sẵn Sàng?</h2>
+        <p style="font-size: 18px;">Hãy cùng tìm các hình khối nhé!</p>
+        <button class="btn-big" onclick="startLevel(1)">BẮT ĐẦU</button>
+    </div>
+</div>
+
+<script>
+    const playArea = document.getElementById('play-area');
+    const instructionBox = document.getElementById('instruction-box');
+    const overlay = document.getElementById('overlay');
+    const counterBadge = document.getElementById('counter-badge');
+
+    let currentLevel = 1;
+    let score = 0;
+    let targetAmount = 0;
+    let currentGoal = null;
+
+    // --- HỆ THỐNG VẼ ĐỒ VẬT (SVG) ---
+    const Shapes = {
+        // Hình cơ bản
+        circle: (color, size=80) => `<svg width="${size}" height="${size}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="${color}" stroke="white" stroke-width="3"/></svg>`,
+        square: (color, size=80) => `<svg width="${size}" height="${size}" viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" fill="${color}" rx="8" stroke="white" stroke-width="3"/></svg>`,
+        rect: (color, size=80) => `<svg width="${size}" height="${size*0.7}" viewBox="0 0 100 70"><rect x="5" y="5" width="90" height="60" fill="${color}" rx="5" stroke="white" stroke-width="3"/></svg>`,
+        
+        // Ngôi nhà
+        houseCircle: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M10 90 L90 90 L90 40 L50 10 L10 40 Z" fill="#FFCDD2"/><circle cx="50" cy="55" r="15" fill="#FF5252"/></svg>`,
+        houseSquare: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M10 90 L90 90 L90 40 L50 10 L10 40 Z" fill="#BBDEFB"/><rect x="35" y="45" width="30" height="30" fill="#448AFF" rx="3"/></svg>`,
+        houseRect: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M10 90 L90 90 L90 40 L50 10 L10 40 Z" fill="#FFF9C4"/><rect x="30" y="50" width="40" height="25" fill="#FFC107" rx="2"/></svg>`,
+
+        // Đồ vật thực tế (Màn 3)
+        wheel: `<svg width="90" height="90" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#333"/><circle cx="50" cy="50" r="35" fill="none" stroke="#666" stroke-width="2"/><circle cx="50" cy="50" r="5" fill="#999"/></svg>`,
+        gift: `<svg width="90" height="90" viewBox="0 0 100 100"><rect x="15" y="25" width="70" height="65" fill="#E91E63" rx="5"/><rect x="45" y="25" width="10" height="65" fill="#FFEB3B"/><rect x="15" y="45" width="70" height="10" fill="#FFEB3B"/><path d="M30 25 Q50 0 70 25" fill="none" stroke="#FFEB3B" stroke-width="5"/></svg>`,
+        tv: `<svg width="110" height="80" viewBox="0 0 120 90"><rect x="5" y="5" width="110" height="70" fill="#455A64" rx="5"/><rect x="12" y="12" width="85" height="55" fill="#81D4FA"/><circle cx="105" cy="20" r="3" fill="white"/><circle cx="105" cy="30" r="3" fill="white"/></svg>`,
+        sun: `<svg width="90" height="90" viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="#FF9800"/><g stroke="#FF9800" stroke-width="4"><line x1="50" y1="10" x2="50" y2="0"/><line x1="50" y1="90" x2="50" y2="100"/><line x1="10" y1="50" x2="0" y2="50"/><line x1="90" y1="50" x2="100" y2="50"/></g></svg>`,
+        window: `<svg width="90" height="90" viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" fill="#8D6E63" rx="2"/><rect x="18" y="18" width="28" height="28" fill="#E3F2FD"/><rect x="54" y="18" width="28" height="28" fill="#E3F2FD"/><rect x="18" y="54" width="28" height="28" fill="#E3F2FD"/><rect x="54" y="54" width="28" height="28" fill="#E3F2FD"/></svg>`,
+        door: `<svg width="80" height="110" viewBox="0 0 80 110"><rect x="10" y="5" width="60" height="100" fill="#795548" stroke="#3E2723" stroke-width="2"/><circle cx="55" cy="55" r="4" fill="#FFD600"/></svg>`
+    };
+
+    // --- QUẢN LÝ MÀN CHƠI ---
+    function startLevel(lv) {
+        currentLevel = lv;
+        overlay.style.display = 'none';
+        playArea.innerHTML = '';
+        counterBadge.style.display = 'none';
+        score = 0;
+
+        switch(lv) {
+            case 1: setupLevel1(); break;
+            case 2: setupLevel2(); break;
+            case 3: setupLevel3(); break;
+            case 4: setupLevel4(); break;
+        }
+    }
+
+    // MÀN 1: KÉO THẢ
+    function setupLevel1() {
+        instructionBox.innerText = "Bé hãy đưa các hình về đúng nhà nhé!";
+        const types = [
+            {id: 'circle', label: 'NHÀ TRÒN', svg: Shapes.houseCircle, x: '10%'},
+            {id: 'square', label: 'NHÀ VUÔNG', svg: Shapes.houseSquare, x: '40%'},
+            {id: 'rect', label: 'NHÀ CHỮ NHẬT', svg: Shapes.houseRect, x: '70%'}
+        ];
+
+        types.forEach(t => {
+            const h = createDiv('house', t.svg + `<div class="house-label">${t.label}</div>`);
+            h.style.left = t.x;
+            h.dataset.type = t.id;
+            playArea.appendChild(h);
+        });
+
+        targetAmount = 5;
+        spawnLevel1Item();
+    }
+
+    function spawnLevel1Item() {
+        const types = ['circle', 'square', 'rect'];
+        const colors = ['#f44336', '#2196f3', '#4caf50', '#ff9800', '#9c27b0'];
+        const type = types[Math.floor(Math.random()*3)];
+        const color = colors[Math.floor(Math.random()*5)];
+        
+        const item = createDiv('game-object draggable', Shapes[type](color));
+        item.dataset.type = type;
+        item.style.left = '45%';
+        item.style.top = '100px';
+        
+        playArea.appendChild(item);
+        makeDraggable(item, (droppedOn) => {
+            if (droppedOn && droppedOn.dataset.type === item.dataset.type) {
+                celebrateItem(item);
+                score++;
+                if (score < targetAmount) spawnLevel1Item();
+                else showLevelComplete(2);
+            } else {
+                item.classList.add('shake');
+                setTimeout(() => {
+                    item.classList.remove('shake');
+                    item.style.top = '100px'; item.style.left = '45%';
+                }, 400);
+            }
+        });
+    }
+
+    // MÀN 2: NGHE VÀ CHỌN
+    function setupLevel2() {
+        const tasks = [
+            {type: 'circle', colorName: 'Màu Đỏ', colorHex: '#f44336', label: 'Hình Tròn'},
+            {type: 'square', colorName: 'Màu Xanh', colorHex: '#2196f3', label: 'Hình Vuông'},
+            {type: 'rect', colorName: 'Màu Vàng', colorHex: '#ffc107', label: 'Hình Chữ Nhật'}
+        ];
+        
+        const task = tasks[Math.floor(Math.random()*3)];
+        currentGoal = task;
+        instructionBox.innerHTML = `Bé hãy tìm: <span style="color:${task.colorHex}">${task.label} ${task.colorName}</span>`;
+
+        // Tạo 8 hình ngẫu nhiên
+        for(let i=0; i<8; i++) {
+            const isTarget = (i === 0);
+            const t = isTarget ? task : tasks[Math.floor(Math.random()*3)];
+            const c = isTarget ? task.colorHex : '#9E9E9E'; // Hình khác màu xám để dễ phân biệt
+            
+            const item = createDiv('game-object', Shapes[t.type](c));
+            item.style.left = (Math.random() * 70 + 10) + '%';
+            item.style.top = (Math.random() * 50 + 20) + '%';
+            
+            item.onclick = () => {
+                if(isTarget) {
+                    celebrateItem(item);
+                    setTimeout(() => showLevelComplete(3), 800);
+                } else {
+                    item.classList.add('shake');
+                    setTimeout(() => item.classList.remove('shake'), 400);
+                }
+            };
+            playArea.appendChild(item);
+        }
+    }
+
+    // MÀN 3: LIÊN HỆ THỰC TẾ
+    function setupLevel3() {
+        const items = [
+            {type: 'circle', svg: Shapes.wheel, name: 'Bánh xe'},
+            {type: 'circle', svg: Shapes.sun, name: 'Mặt trời'},
+            {type: 'square', svg: Shapes.gift, name: 'Hộp quà'},
+            {type: 'square', svg: Shapes.window, name: 'Cửa sổ'},
+            {type: 'rect', svg: Shapes.tv, name: 'Cái Tivi'},
+            {type: 'rect', svg: Shapes.door, name: 'Cánh cửa'}
+        ];
+
+        const goals = [
+            {type: 'circle', text: 'Hình Tròn (Tròn xoe)'},
+            {type: 'square', text: 'Hình Vuông'},
+            {type: 'rect', text: 'Hình Chữ Nhật'}
+        ];
+        const goal = goals[Math.floor(Math.random()*3)];
+        instructionBox.innerText = "Bé tìm đồ vật giống: " + goal.text;
+
+        items.forEach(it => {
+            const el = createDiv('game-object', it.svg);
+            el.style.left = (Math.random() * 70 + 10) + '%';
+            el.style.top = (Math.random() * 60 + 15) + '%';
+            el.onclick = () => {
+                if(it.type === goal.type) {
+                    celebrateItem(el);
+                    score++;
+                    if(score >= 2) setTimeout(() => showLevelComplete(4), 1000);
+                } else {
+                    el.classList.add('shake');
+                    setTimeout(() => el.classList.remove('shake'), 400);
+                }
+            };
+            playArea.appendChild(el);
+        });
+    }
+
+    // MÀN 4: ĐẾM SỐ
+    function setupLevel4() {
+        const goalType = Math.random() > 0.5 ? 'circle' : 'square';
+        targetAmount = goalType === 'circle' ? 4 : 3;
+        instructionBox.innerText = `Thử thách cuối: Bé tìm đủ ${targetAmount} ${goalType==='circle'?'Hình Tròn':'Hình Vuông'} nhé!`;
+        
+        counterBadge.style.display = 'block';
+        updateCounter();
+
+        for(let i=0; i < 15; i++) {
+            const isGoal = (i < targetAmount);
+            const type = isGoal ? goalType : (goalType==='circle'?'square':'rect');
+            const color = isGoal ? '#FF4081' : '#CFD8DC';
+            
+            const el = createDiv('game-object', Shapes[type](color));
+            el.style.left = (Math.random() * 80 + 5) + '%';
+            el.style.top = (Math.random() * 60 + 15) + '%';
+            
+            el.onclick = () => {
+                if(isGoal && !el.dataset.done) {
+                    el.dataset.done = "true";
+                    celebrateItem(el);
+                    score++;
+                    updateCounter();
+                    if(score >= targetAmount) {
+                        setTimeout(() => finishGame(), 1000);
+                    }
+                } else if(!isGoal) {
+                    el.classList.add('shake');
+                    setTimeout(() => el.classList.remove('shake'), 400);
+                }
+            };
+            playArea.appendChild(el);
+        }
+    }
+
+    // --- TIỆN ÍCH HỖ TRỢ ---
+    function createDiv(cls, html) {
+        const d = document.createElement('div');
+        d.className = cls;
+        d.innerHTML = html;
+        return d;
+    }
+
+    function updateCounter() {
+        counterBadge.innerText = `${score} / ${targetAmount}`;
+    }
+
+    function celebrateItem(el) {
+        el.classList.add('correct-pop');
+        // Hiệu ứng pháo giấy nhỏ tại chỗ
+        for(let i=0; i<8; i++) {
+            const p = createDiv('game-object', `<div style="width:10px;height:10px;background:gold;border-radius:50%"></div>`);
+            p.style.left = el.style.left;
+            p.style.top = el.style.top;
+            playArea.appendChild(p);
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 50 + Math.random() * 50;
+            p.animate([
+                { transform: 'translate(0,0)', opacity: 1 },
+                { transform: `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`, opacity: 0 }
+            ], { duration: 600 }).onfinish = () => p.remove();
+        }
+    }
+
+    function showLevelComplete(next) {
+        overlay.style.display = 'flex';
+        overlay.innerHTML = `
+            <h2 style="font-size:40px">TUYỆT VỜI! 🌟</h2>
+            <p>Bé đã hoàn thành màn ${currentLevel}</p>
+            <button class="btn-big" onclick="startLevel(${next})">TIẾP TỤC</button>
+        `;
+    }
+
+    function finishGame() {
+        overlay.style.display = 'flex';
+        overlay.innerHTML = `
+            <h2 style="font-size:40px">CHIẾN THẮNG! 🏆</h2>
+            <p>Bé là một Thám tử Hình học tài ba!</p>
+            <button class="btn-big" onclick="location.reload()">CHƠI LẠI</button>
+        `;
+    }
+
+    // Xử lý Kéo thả (Drag & Drop) cảm ứng và chuột
+    function makeDraggable(el, onDrop) {
+        let isDragging = false;
+        const move = (e) => {
+            if(!isDragging) return;
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            el.style.left = (x - 40) + 'px';
+            el.style.top = (y - 40) + 'px';
+        };
+        const stop = (e) => {
+            if(!isDragging) return;
+            isDragging = false;
+            el.style.zIndex = 10;
+            const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+            const droppedOn = document.elementFromPoint(x, y)?.closest('.house');
+            onDrop(droppedOn);
+        };
+        el.onmousedown = el.ontouchstart = (e) => {
+            isDragging = true;
+            el.style.zIndex = 1000;
+        };
+        window.onmousemove = window.ontouchmove = move;
+        window.onmouseup = window.ontouchend = stop;
+    }
+</script>
+
+</body>
+</html>
