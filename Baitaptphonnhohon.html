@@ -1,0 +1,68 @@
+Role: You are a Senior Game Developer specializing in Early Childhood Education (Preschool/Kindergarten).
+
+Task: Create a robust, single-file HTML5 game (HTML + CSS + JS) focusing on categorization by Size, Color, and Type.
+
+**Technical Constraints:**
+1.  **Single File:** All code must be in one `.html` file.
+2.  **Mobile-First:** MUST use `touchstart`, `touchmove`, `touchend` in addition to mouse events. The game must work perfectly on iPads and Smartphones.
+3.  **Visuals:** Use Emojis as sprites (to ensure no broken images). Use CSS to style "Drop Zones" (Houses, Boxes) to look like cartoon containers.
+4.  **UI:** Large, rounded buttons. Cheerful color palette (Pastel backgrounds, bright item colors).
+5.  **Audio/Feedback:** Use browser-native `AudioContext` for simple "Ding" (correct) and "Buzz" (wrong) sounds. Show visual confetti/particles on correct drops.
+
+**Game Flow & Level Design (5 Levels Total):**
+
+**Global Mechanic:** Drag items from a bottom "inventory" bar into the correct "Drop Zone" in the center.
+
+**Level 1: Big vs. Small (The House Concept)**
+-   **Objective:** Sort household items by size.
+-   **Drop Zones:**
+    1.  **Small House** (CSS: Smaller scale, labeled "Nhà Nhỏ").
+    2.  **Big House** (CSS: Larger scale, labeled "Nhà To").
+-   **Items:**
+    -   Small: Cup 🍵, Bowl 🥣, Spoon 🥄.
+    -   Big: TV 📺, Table 🪑, Sofa 🛋️.
+-   **Logic:** Small items snap to Small House. Big items snap to Big House.
+
+**Level 2: Basic Color Sorting (Red vs. Blue)**
+-   **Objective:** Sort items purely by color to prepare for the next level.
+-   **Drop Zones:**
+    1.  **Red Box** (CSS: Red background, open lid style).
+    2.  **Blue Box** (CSS: Blue background).
+-   **Items:** Red Apple 🍎, Red Bow 🎀, Blue Car 🚙, Blue Book 📘.
+
+**Level 3: Advanced Logic (Color + Size Combination)**
+-   **Objective:** Specific rule following.
+-   **Drop Zones:**
+    1.  **Small Red Box** (CSS: Red border, small size).
+    2.  **Big Blue Box** (CSS: Blue border, large size).
+-   **Items:**
+    -   Small Red Objects (e.g., Small Red Pin 📍, Cherry 🍒).
+    -   Big Blue Objects (e.g., Big Blue Whale 🐳, Blue Coat 🧥).
+-   **Logic:**
+    -   IF item is Red & Small -> Drag to Small Red Box.
+    -   IF item is Blue & Big -> Drag to Big Blue Box.
+
+**Level 4: Family Sorting (The Slipper Game)**
+-   **Objective:** Match personal items to family members.
+-   **Drop Zones:**
+    1.  **Baby's Room** (Icon: 👶).
+    2.  **Parent's Room** (Icon: 👨‍👩‍👧).
+-   **Items:**
+    -   Small Slippers (🩴 - rendered small size via CSS).
+    -   Big Slippers (🩴 - rendered large size via CSS).
+-   **Logic:** Small slippers go to Baby. Big slippers go to Parents.
+
+**Level 5: Kitchen Cleanup (Categorization)**
+-   **Objective:** Put kitchenware in the cupboard vs. toys in the toy box.
+-   **Drop Zones:**
+    1.  **Kitchen Cupboard** (Square shape).
+    2.  **Toy Box** (Round/Oval shape).
+-   **Items:** Pot 🍲, Pan 🍳 (to Cupboard); Teddy Bear 🧸, Robot 🤖 (to Toy Box).
+
+**Implementation Details:**
+-   Add a progress bar.
+-   Show a "Well Done!" modal with a "Next Level" button after finishing each level.
+-   If the user drops an item incorrectly, it should animate (shake) and return to the original position.
+-   Ensure the "Big" items are visually at least 2x larger than "Small" items using CSS `transform: scale()`.
+
+Please write the complete code ready to run.
