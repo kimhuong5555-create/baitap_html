@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Tập Cho Thú Ăn</title>
+    <style>
+        :root {
+            --bg-color: #e0f7fa;
+            --accent-color: #ffeb3b;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            background: var(--bg-color);
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 { color: #2e7d32; font-size: 3rem; margin-bottom: 20px; text-shadow: 2px 2px white; }
+
+        .btn {
+            padding: 20px 50px;
+            font-size: 2rem;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px #2e7d32;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px #2e7d32;
+        }
+
+        /* Game Layout */
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .level-indicator {
+            padding: 10px;
+            font-size: 1.5rem;
+            color: #555;
+            background: rgba(255,255,255,0.5);
+        }
+
+        #drop-zone-area {
+            flex: 1;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #drag-item-area {
+            flex: 1;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 20px;
+            background: rgba(255,255,255,0.3);
+            border-top: 4px dashed #90caf9;
+        }
+
+        /* Emojis */
+        .animal {
+            font-size: 8rem;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 150px;
+            height: 150px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .food {
+            font-size: 5rem;
+            cursor: grab;
+            touch-action: none;
+            z-index: 5;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .dragging {
+            z-index: 1000;
+            transform: scale(1.2);
+            cursor: grabbing;
+        }
+
+        /* Animations */
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .eating { animation: bounce 0.5s ease-in-out; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .wrong { animation: shake 0.4s ease-in-out; }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: red;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen">
+        <h1>Bé Tập Cho Thú Ăn 🍎</h1>
+        <button class="btn" onclick="startGame()">Chơi Thôi!</button>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div class="level-indicator" id="level-text">Cấp độ 1</div>
+        <div id="drop-zone-area"></div>
+        <div id="drag-item-area"></div>
+    </div>
+
+    <div id="win-screen" class="screen hidden">
+        <h1>Chúc Mừng! 🏆</h1>
+        <p style="font-size: 1.5rem;">Bạn thật là giỏi!</p>
+        <button class="btn" onclick="location.reload()">Chơi Lại</button>
+    </div>
+
+    <script>
+        const levels = [
+            {
+                name: "Nông Trại & Khu Vườn",
+                data: [
+                    { id: "rabbit", animal: "🐰", food: "🥕", name: "rabbit" },
+                    { id: "cow", animal: "🐮", food: "🌿", name: "cow" },
+                    { id: "chicken", animal: "🐔", food: "🌾", name: "chicken" }
+                ]
+            },
+            {
+                name: "Rừng Xanh Hoang Dã",
+                data: [
+                    { id: "monkey", animal: "🐵", food: "🍌", name: "monkey" },
+                    { id: "elephant", animal: "🐘", food: "🎋", name: "elephant" },
+                    { id: "giraffe", animal: "🦒", food: "🍃", name: "giraffe" }
+                ]
+            },
+            {
+                name: "Những Bạn Nhỏ Bé",
+                data: [
+                    { id: "bee", animal: "🐝", food: "🌻", name: "bee" },
+                    { id: "bird", animal: "🐦", food: "🐛", name: "bird" },
+                    { id: "caterpillar", animal: "🐛", food: "🌿", name: "caterpillar" }
+                ]
+            }
+        ];
+
+        let currentLevel = 0;
+        let fedCount = 0;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
+        function createConfetti() {
+            for (let i = 0; i < 30; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                document.body.appendChild(confetti);
+
+                const animation = confetti.animate([
+                    { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate(${(Math.random() - 0.5) * 200}px, 100vh) rotate(720deg)`, opacity: 0 }
+                ], {
+                    duration: 1000 + Math.random() * 2000,
+                    easing: 'cubic-bezier(0, .9, .57, 1)'
+                });
+
+                animation.onfinish = () => confetti.remove();
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            loadLevel();
+        }
+
+        function loadLevel() {
+            const levelData = levels[currentLevel];
+            document.getElementById('level-text').innerText = levelData.name;
+            const animalArea = document.getElementById('drop-zone-area');
+            const foodArea = document.getElementById('drag-item-area');
+            
+            animalArea.innerHTML = '';
+            foodArea.innerHTML = '';
+            fedCount = 0;
+
+            // Create Animals
+            levelData.data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'animal';
+                div.id = `target-${item.id}`;
+                div.dataset.accepts = item.id;
+                div.innerHTML = item.animal;
+                animalArea.appendChild(div);
+            });
+
+            // Create Foods (Shuffled)
+            const foods = [...levelData.data].sort(() => Math.random() - 0.5);
+            foods.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'food';
+                div.id = `food-${item.id}`;
+                div.dataset.match = item.id;
+                div.innerHTML = item.food;
+                foodArea.appendChild(div);
+                setupDraggable(div);
+            });
+        }
+
+        function setupDraggable(el) {
+            let startX, startY, initialX, initialY;
+            
+            el.onpointerdown = (e) => {
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = rect.left;
+                initialY = rect.top;
+
+                el.classList.add('dragging');
+                el.style.position = 'fixed';
+                el.style.left = initialX + 'px';
+                el.style.top = initialY + 'px';
+                
+                document.onpointermove = (e) => {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    el.style.left = (initialX + dx) + 'px';
+                    el.style.top = (initialY + dy) + 'px';
+                };
+
+                document.onpointerup = (e) => {
+                    document.onpointermove = null;
+                    document.onpointerup = null;
+                    el.classList.remove('dragging');
+
+                    checkDrop(el, e.clientX, e.clientY);
+                };
+            };
+        }
+
+        function checkDrop(el, x, y) {
+            const targets = document.querySelectorAll('.animal');
+            let matched = false;
+
+            targets.forEach(target => {
+                const rect = target.getBoundingClientRect();
+                if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) {
+                    if (target.dataset.accepts === el.dataset.match) {
+                        // Correct!
+                        target.classList.add('eating');
+                        playSound('success');
+                        createConfetti();
+                        el.style.visibility = 'hidden';
+                        fedCount++;
+                        
+                        setTimeout(() => target.classList.remove('eating'), 500);
+                        
+                        if (fedCount === levels[currentLevel].data.length) {
+                            nextLevel();
+                        }
+                        matched = true;
+                    }
+                }
+            });
+
+            if (!matched) {
+                playSound('error');
+                el.classList.add('wrong');
+                el.style.position = 'static';
+                setTimeout(() => el.classList.remove('wrong'), 400);
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            if (currentLevel < levels.length) {
+                setTimeout(loadLevel, 1000);
+            } else {
+                setTimeout(() => {
+                    document.getElementById('game-container').classList.add('hidden');
+                    document.getElementById('win-screen').classList.remove('hidden');
+                    createConfetti();
+                    setInterval(createConfetti, 1000);
+                }, 800);
+            }
+        }
+    </script>
+</body>
+</html>
