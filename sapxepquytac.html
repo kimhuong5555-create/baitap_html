@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Đoàn Tàu Sắc Màu - Pattern Train</title>
+    <style>
+        :root {
+            --green: #4CAF50;
+            --red: #F44336;
+            --yellow: #FFEB3B;
+            --purple: #9C27B0;
+            --brown: #795548;
+            --sky: #87CEEB;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--sky);
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* --- World & Track --- */
+        #game-container {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+        }
+
+        #railway-track {
+            flex: 0 0 70%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 70%, #91c483 70%, #91c483 100%);
+        }
+
+        .track-line {
+            position: absolute; bottom: 25%; width: 5000px; height: 15px;
+            background: #5d4037; border-top: 4px solid #3e2723;
+        }
+
+        /* --- The Train --- */
+        #train-scroller {
+            position: absolute;
+            bottom: 25%;
+            left: 50%; /* Anchor point for centering */
+            display: flex;
+            align-items: flex-end;
+            transition: transform 0.8s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+            padding-left: 0;
+        }
+
+        .engine {
+            width: 120px; height: 90px; background: #333;
+            border-radius: 10px 30px 5px 5px; position: relative; margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .engine::before { content: "🚂"; position: absolute; top: 10px; left: 20px; font-size: 50px; }
+        .engine-chimney { position: absolute; top: -20px; left: 80px; width: 20px; height: 30px; background: #222; }
+
+        .carriage {
+            width: 80px; height: 60px; border-radius: 8px;
+            margin-right: 8px; position: relative; flex-shrink: 0;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 -5px rgba(0,0,0,0.2);
+        }
+
+        .carriage.ghost {
+            background: rgba(255,255,255,0.3);
+            border: 3px dashed rgba(0,0,0,0.2);
+            box-shadow: none;
+        }
+
+        .wheel {
+            position: absolute; bottom: -10px; width: 20px; height: 20px;
+            background: #333; border: 3px solid #666; border-radius: 50%;
+        }
+        .w1 { left: 5px; } .w2 { right: 5px; }
+
+        /* --- Station (Bottom UI) --- */
+        #station {
+            flex: 0 0 30%;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            border-top: 10px solid #ff9800;
+            padding: 10px;
+            z-index: 100;
+        }
+
+        .draggable-car {
+            width: 70px; height: 50px; border-radius: 8px;
+            cursor: grab; touch-action: none;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; color: white;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+        }
+
+        /* --- UI Elements --- */
+        #victory-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 1000; color: white;
+        }
+
+        .btn-play {
+            padding: 20px 40px; font-size: 24px; background: #4CAF50;
+            color: white; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 6px 0 #2e7d32; margin-top: 20px;
+        }
+
+        .confetti { position: absolute; width: 10px; height: 10px; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="railway-track">
+        <div class="track-line"></div>
+        <div id="train-scroller">
+            <div class="engine"><div class="engine-chimney"></div><div class="wheel w1"></div><div class="wheel w2"></div></div>
+            </div>
+    </div>
+
+    <div id="station">
+        </div>
+</div>
+
+<div id="victory-modal">
+    <h1 style="font-size: 3rem;">TU TU XÌNH XỊCH! 🚂</h1>
+    <p style="font-size: 1.5rem;">Bé đã hoàn thành đoàn tàu!</p>
+    <button class="btn-play" onclick="location.reload()">Chơi Lại</button>
+</div>
+
+<script>
+    // Configuration
+    const PATTERN = [
+        { color: '#4CAF50', name: 'green' },
+        { color: '#F44336', name: 'red' },
+        { color: '#FFEB3B', name: 'yellow' },
+        { color: '#9C27B0', name: 'purple' },
+        { color: '#795548', name: 'brown' }
+    ];
+    const REPEATS = 5;
+    const TOTAL_CARS = PATTERN.length * REPEATS;
+    const START_REVEALED = 5; // First 5 are hints
+
+    let trainData = [];
+    let currentIndex = START_REVEALED; // The next index to fill
+
+    // Audio Context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playNote(freq, dur, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function soundCorrect() { playNote(523.25, 0.2); setTimeout(() => playNote(659.25, 0.3), 100); }
+    function soundWrong() { playNote(150, 0.4, 'sawtooth'); }
+    function soundWhistle() { playNote(880, 0.5, 'square'); playNote(987, 0.5, 'square'); }
+
+    // Init Game
+    function init() {
+        const scroller = document.getElementById('train-scroller');
+        const station = document.getElementById('station');
+        
+        // 1. Create Train State
+        for (let i = 0; i < TOTAL_CARS; i++) {
+            const patternInfo = PATTERN[i % PATTERN.length];
+            trainData.push({
+                ...patternInfo,
+                filled: i < START_REVEALED
+            });
+        }
+
+        // 2. Render Train
+        renderTrain();
+
+        // 3. Create Draggables
+        PATTERN.forEach(p => {
+            const el = document.createElement('div');
+            el.className = 'draggable-car';
+            el.style.backgroundColor = p.color;
+            el.dataset.color = p.color;
+            setupDraggable(el);
+            station.appendChild(el);
+        });
+
+        updateCamera();
+    }
+
+    function renderTrain() {
+        const scroller = document.getElementById('train-scroller');
+        // Keep engine, clear rest
+        const engine = scroller.querySelector('.engine');
+        scroller.innerHTML = '';
+        scroller.appendChild(engine);
+
+        trainData.forEach((car, i) => {
+            const div = document.createElement('div');
+            div.className = car.filled ? 'carriage' : 'carriage ghost';
+            div.id = `slot-${i}`;
+            if (car.filled) div.style.backgroundColor = car.color;
+            div.innerHTML = `<div class="wheel w1"></div><div class="wheel w2"></div>`;
+            scroller.appendChild(div);
+        });
+    }
+
+    function setupDraggable(el) {
+        let isDragging = false;
+        let startX, startY, origX, origY;
+
+        const start = (e) => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            isDragging = true;
+            const t = e.touches ? e.touches[0] : e;
+            startX = t.clientX; startY = t.clientY;
+            const rect = el.getBoundingClientRect();
+            origX = rect.left; origY = rect.top;
+
+            el.style.position = 'fixed';
+            el.style.left = origX + 'px';
+            el.style.top = origY + 'px';
+            el.style.zIndex = 2000;
+        };
+
+        const move = (e) => {
+            if (!isDragging) return;
+            const t = e.touches ? e.touches[0] : e;
+            el.style.transform = `translate(${t.clientX - startX}px, ${t.clientY - startY}px)`;
+        };
+
+        const end = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            const t = e.changedTouches ? e.changedTouches[0] : e;
+            
+            // Check Collision with current ghost slot
+            const slot = document.getElementById(`slot-${currentIndex}`);
+            const sRect = slot.getBoundingClientRect();
+            
+            const isMatch = (
+                t.clientX > sRect.left && t.clientX < sRect.right &&
+                t.clientY > sRect.top && t.clientY < sRect.bottom &&
+                el.dataset.color === trainData[currentIndex].color
+            );
+
+            if (isMatch) {
+                trainData[currentIndex].filled = true;
+                soundCorrect();
+                createConfetti(t.clientX, t.clientY);
+                currentIndex++;
+                renderTrain();
+                updateCamera();
+                
+                if (currentIndex >= TOTAL_CARS) winGame();
+            } else {
+                soundWrong();
+                el.style.transition = 'all 0.3s';
+                el.style.transform = 'translate(0,0) rotate(15deg)';
+                setTimeout(() => { 
+                    el.style.transition = 'none'; 
+                    el.style.transform = 'none'; 
+                    el.style.position = 'static';
+                }, 300);
+            }
+            
+            if (isMatch) {
+                el.style.position = 'static';
+                el.style.transform = 'none';
+            }
+        };
+
+        el.addEventListener('mousedown', start);
+        el.addEventListener('touchstart', start);
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchmove', move, {passive: false});
+        window.addEventListener('mouseup', end);
+        window.addEventListener('touchend', end);
+    }
+
+    function updateCamera() {
+        const scroller = document.getElementById('train-scroller');
+        // Calculate offset to center the currentIndex slot
+        // 120 (engine) + (currentIndex * 88) 
+        const offset = 120 + (currentIndex * 88);
+        scroller.style.transform = `translateX(-${offset}px)`;
+    }
+
+    function createConfetti(x, y) {
+        for(let i=0; i<15; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.left = x + 'px'; c.style.top = y + 'px';
+            c.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+            document.body.appendChild(c);
+            const a = Math.random()*Math.PI*2;
+            const v = 5 + Math.random()*10;
+            let cx = x, cy = y, vx = Math.cos(a)*v, vy = Math.sin(a)*v;
+            const anim = () => {
+                vy += 0.5; cx += vx; cy += vy;
+                c.style.left = cx+'px'; c.style.top = cy+'px';
+                if(cy < window.innerHeight) requestAnimationFrame(anim);
+                else c.remove();
+            };
+            requestAnimationFrame(anim);
+        }
+    }
+
+    function winGame() {
+        soundWhistle();
+        const scroller = document.getElementById('train-scroller');
+        scroller.style.transition = 'transform 4s ease-in';
+        scroller.style.transform = 'translateX(-4000px)';
+        setTimeout(() => {
+            document.getElementById('victory-modal').style.display = 'flex';
+        }, 2000);
+    }
+
+    init();
+</script>
+</body>
+</html>
